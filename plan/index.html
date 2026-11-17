@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="nn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Planverktøy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Planverktøy: generell, frittståande planteikning for bedrifter med éin eller fleire hallar.
+   Opnast i ein vanleg nettlesar. Lagrar i nettlesaren, og planen kan eksporterast og importerast som JSON-fil.
+   Mål: 1 eining = 1 cm. */
+:root{
+  --paper:#f2f4f1; --sheet:#fbfcfa; --ink:#18272b; --muted:#5d6c70; --line:#d3dbd8; --field:#ffffff;
+  --wall:#1f2f33; --floor:#eef1ee; --gridc:#d9e0dd;
+  --reol:#36525a; --reol-ink:#f4f7f6; --shelf:#c98a1a; --pall:#7a5230; --maskin:#5e6b8c; --cold:#7fb6c9;
+  --till:#c4122f; --till-ink:#ffffff; --sone:#3f8f8a; --good:#2b8a4b; --door:#fbfcfa;
+  --sel:#1d6fd6; --hit:#e0a100; --danger:#b3261e;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#0f1719; --sheet:#152023; --ink:#e3ebe9; --muted:#9aaaae; --line:#2b393c; --field:#1b282b;
+  --wall:#d9e3e1; --floor:#1b2629; --gridc:#26353a;
+  --reol:#8fb3bc; --reol-ink:#0f1719; --shelf:#e6a93c; --pall:#c08a5a; --maskin:#9aa8cf; --cold:#4d8ea3;
+  --till:#ff5c74; --till-ink:#1a0a0d; --sone:#5fb7b0; --good:#5cc882; --door:#152023;
+  --sel:#6aa8ff; --hit:#ffcc4d; --danger:#ff8a80; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding:0 16px}
+.wrap{max-width:1300px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:13px;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,4.4vw,40px);line-height:1;margin:2px 0 0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:2px}
+.btn{font-family:var(--body);font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;min-height:32px}
+.btn:hover:not(:disabled){border-color:var(--sel)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.tab:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.btn.danger{color:var(--danger)} .btn.armed{background:var(--danger);border-color:var(--danger);color:var(--sheet)}
+.sw{width:13px;height:13px;border-radius:2px;display:inline-block;flex:none}
+.spacer{flex:1 1 auto}
+.status{font-size:13px;color:var(--muted)} .status.err{color:var(--danger)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line)}
+.tab{font-family:var(--display);font-size:18px;font-weight:600;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:6px 6px 0 0;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{background:var(--sheet);border-color:var(--line);color:var(--ink)}
+.tab.add{color:var(--sel)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+.canvas{background:var(--sheet);border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:80vh;min-width:0}
+.canvas svg{display:block;height:auto;user-select:none;-webkit-user-select:none}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.panel h2{font-family:var(--display);font-weight:600;font-size:19px;margin:0;text-transform:uppercase;letter-spacing:.06em}
+.panel p{margin:0;color:var(--muted);font-size:14px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+label.f input,label.f select,label.f textarea{font-family:var(--body);font-size:15px;font-weight:400;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:5px;padding:6px 8px;width:100%}
+label.f textarea{resize:vertical;min-height:60px;line-height:1.4}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.hint{font-size:12px;color:var(--muted)}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:280px;overflow:auto}
+.list button{width:100%;text-align:left;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:5px;padding:6px 8px;cursor:pointer;font-family:var(--body);font-size:14px}
+.list button small{display:block;color:var(--muted);font-size:12px}
+.search{font-family:var(--body);font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--ink);width:100%}
+.vtbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--sheet);border:2px solid var(--shelf);border-radius:6px;padding:10px 12px;font-size:14px}
+.btn.vtgo{background:var(--good);border-color:var(--good);color:#fff}
+.banner{background:var(--sheet);border:1px solid var(--hit);border-radius:6px;padding:10px 12px;font-size:14px}
+
+/* SVG */
+svg text{font-family:var(--display);fill:var(--ink)}
+.floor{fill:var(--floor)} .hallwall{fill:none;stroke:var(--wall)}
+.t-reol{fill:var(--reol)} .t-hylle{fill:var(--shelf)} .t-pallreol{fill:var(--pall)} .t-benk{fill:var(--maskin)}
+.t-kjol{fill:var(--cold)} .t-kasse{fill:var(--till)} .t-sone{fill:var(--sone);fill-opacity:.14;stroke:var(--sone);stroke-dasharray:6 5}
+.t-vegg{fill:var(--wall)} .t-dor{fill:var(--door);stroke:var(--muted);stroke-dasharray:4 3} .t-nod{fill:var(--good)} .t-brann{fill:var(--till)}
+.lt{font-weight:600} .lq{font-weight:500;fill:var(--muted)} .lb{font-weight:700}
+.in-light{fill:var(--reol-ink);font-weight:600} .in-till{fill:var(--till-ink);font-weight:700} .in-ink{fill:var(--ink);font-weight:700}
+.sone-t{fill:var(--sone);font-weight:700}
+.obj{cursor:grab;touch-action:none}
+.hitbox{fill:transparent}
+.obj.hit .shape{stroke:var(--hit)}
+.selbox{fill:none;stroke:var(--sel);stroke-dasharray:8 6;pointer-events:none}
+.handle{fill:var(--sheet);stroke:var(--sel);touch-action:none}
+.rothandle{fill:var(--sheet);stroke:var(--sel);cursor:grab;touch-action:none}
+.rothandle:active{cursor:grabbing}
+.rotline{stroke:var(--sel);pointer-events:none}
+.hallbox{cursor:pointer;touch-action:none}
+.hallbox:hover .hb{stroke:var(--sel)}
+.hb{fill:var(--floor);stroke:var(--wall)}
+.scale{stroke:var(--ink);fill:none}
+
+@media print{
+  body{background:#fff;padding:0}
+  .bar,.tabs,.side,#banner,.noprint{display:none!important}
+  .main{display:block}
+  .canvas{border:0;max-height:none;overflow:visible}
+  .canvas svg{width:100%!important}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Planverktøy</div>
+    <h1 id="bedrift">Plan</h1>
+  </header>
+
+  <div id="vtbar" class="vtbar noprint" hidden>
+    <div><b>Du teiknar planen for varetellinga.</b> <span class="hint">Reolar, hyller, pallreolar, kjøl/frys, kasse og benkar blir tellestader.</span></div>
+    <div class="acts"><button class="btn" id="vt-avbryt">Avbryt</button><button class="btn vtgo" id="vt-bruk">✓ Bruk planen i varetellinga</button></div>
+  </div>
+  <div id="banner" class="banner" hidden>Dette er ein dømeplan, så du ser korleis verktøyet verkar. Trykk «Ny tom plan» når du vil starte med dine eigne hallar.</div>
+
+  <div class="bar noprint">
+    <div class="grp" id="addgrp" role="group" aria-label="Legg til"><span class="gl">Legg til</span></div>
+  </div>
+  <div class="bar noprint">
+    <div class="grp" role="group" aria-label="Fil">
+      <span class="gl">Fil</span>
+      <button class="btn" id="b-export">Eksporter</button>
+      <button class="btn" id="b-import">Importer</button>
+      <input type="file" id="importfile" accept=".json,application/json" hidden>
+      <button class="btn" id="b-print">Skriv ut / PDF</button>
+      <button class="btn danger" id="b-new">Ny tom plan</button>
+      <button class="btn" id="b-demo">Last inn døme</button>
+      <button class="btn" id="b-tilvt">Til varetellinga →</button>
+      <select class="btn" id="b-sprak" aria-label="Språk"><option value="nn">Nynorsk</option><option value="nb">Bokmål</option></select>
+    </div>
+    <div class="spacer"></div>
+    <div class="grp">
+      <button class="btn" id="undo" disabled>Angre</button>
+      <button class="btn" id="zoomout" aria-label="Zoom ut">−</button>
+      <button class="btn" id="zoomin" aria-label="Zoom inn">+</button>
+      <span class="status" id="status"></span>
+    </div>
+  </div>
+
+  <div class="tabs noprint" id="tabs" role="tablist"></div>
+
+  <div class="main">
+    <div class="canvas" id="canvas"><svg id="plan" role="img" aria-label="Planteikning"></svg></div>
+    <div class="side">
+      <div class="panel" id="insp" aria-live="polite"></div>
+      <div class="panel">
+        <h2>Finn</h2>
+        <input class="search" id="q" type="search" placeholder="Vare, lokasjonskode eller namn" aria-label="Finn">
+        <ul class="list" id="results"></ul>
+        <p class="hint" id="qhint">Søket leitar i alle hallar: namn, lokasjonskode, innhald og merknader.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====================== Språk: nynorsk (grunnspråket) og bokmål ======================
+   Grensesnittet er skrive på nynorsk. Når bokmål er valt, blir all tekst på sida omsett
+   ord for ord med ordlista under (med nokre reglar for ord som skiftar etter samanhengen).
+   Brukarinnhald i input-felt blir aldri endra. */
+const SPRAK_KEY = 'vt-sprak';
+const SPRAK_VAL = [['nn', 'Nynorsk'], ['nb', 'Bokmål']];
+let SPRAK = (() => { try{ const v = localStorage.getItem(SPRAK_KEY); if (v === 'nn' || v === 'nb') return v; }catch(e){} const l = (navigator.languages || [navigator.language || '']).join(' ').toLowerCase(); return /\bnn\b|nn-/.test(l) ? 'nn' : 'nb'; })();
+function setSprak(v){ if (v !== 'nn' && v !== 'nb') return; try{ localStorage.setItem(SPRAK_KEY, v); }catch(e){} if (v !== SPRAK) location.reload(); }
+const NB_ORD = (() => {
+  const d = {};
+  const add = str => str.trim().split(/\s*\n\s*|\s*;\s*/).forEach(p => { if (!p) return; const [a, b] = p.split('='); if (a && b !== undefined) d[a.trim()] = b.trim(); });
+  add(`ikkje=ikke; eg=jeg; me=vi; de=dere; dykk=dere; dykkar=deres; dei=de; deira=deres; ho=den; henne=den; honom=den; han=den; hennar=hennes
+kva=hva; kven=hvem; kvifor=hvorfor; korleis=hvordan; kor=hvor; kvart=hvert; kvarandre=hverandre; kvarvetida=hver gang
+ein=en; eit=et; éin=én; eitt=ett; eine=ene; einaste=eneste
+frå=fra; meir=mer; mest=mest; mykje=mye; berre=bare; òg=også; enno=ennå; heile=hele; heilt=helt; fleire=flere; nokre=noen; noko=noe; nokon=noen; nokså=nokså
+sjølv=selv; sjølve=selve; saman=sammen; medan=mens; framleis=fortsatt; seinare=senere; seinast=senest; samstundes=samtidig; vidare=videre; annan=annen; anna=annet; eigen=egen; eige=eget; eigne=egne
+no=nå; då=da; sidan=siden; viss=hvis; difor=derfor; hjå=hos; mellom=mellom; utan=uten; òg=også; gong=gang; gongen=gangen; gonger=ganger
+veke=uke; veker=uker; månad=måned; månader=måneder; månadene=månedene; månadar=måneder; dagar=dager; dagane=dagene; klokka=klokken; staden=stedet; stad=sted; stader=steder; stadene=stedene
+vert=blir; vart=ble; vorte=blitt; vere=være; vore=vært; gjer=gjør; gjere=gjøre; sjå=se; såg=så; kjem=kommer; kome=komme; komen=kommet; veit=vet; gjev=gir; gje=gi; gjeve=gitt
+tek=tar; teke=tatt; tekne=tatt; treng=trenger; trengst=trengs; seier=sier; held=holder; halde=holde; haldne=holdt; ligg=ligger; låg=lå; fekk=fikk; gjekk=gikk; finst=finnes; finn=finner
+leggje=legge; leggjast=legges; setje=sette; setjast=settes; byter=bytter; byte=bytte; bytt=byttet
+opne=åpne; opnar=åpner; opna=åpnet; opnast=åpnes; open=åpen; opent=åpent; opne=åpne; opning=åpning
+telje=telle; teljast=telles; teljing=telling; teljinga=tellingen; teljingar=tellinger; teljingane=tellingene; teljingsdagen=tellingsdagen; talde=talte; tald=talt; tal=antall; tala=tallene; talet=tallet; teljemåte=tellemåte; prøveteljing=prøvetelling; prøveteljinga=prøvetellingen; salstal=salgstall; salstala=salgstallene
+tellar=teller; tellarar=tellere; tellarane=tellerne; tellaren=telleren
+lagra=lagret; lagrar=lagrer; lagrast=lagres; lagring=lagring; lagringar=lagringer
+sletta=slettet; slettar=sletter; slettast=slettes
+henta=hentet; hentar=henter; hentast=hentes
+endra=endret; endrar=endrer; endrast=endres; endring=endring; endringar=endringer; endringane=endringene
+flytta=flyttet; flyttar=flytter; flyttast=flyttes
+avslutta=avsluttet; avsluttar=avslutter
+kopla=koblet; koplar=kobler; koplast=kobles; kople=koble; kopling=kobling; koplinga=koblingen; koplingar=koblinger
+laga=laget; lagar=lager; lagast=lages
+delar=deler; delast=deles; delinga=delingen
+manglar=mangler; mangla=manglet; ventar=venter; venta=ventet; ventande=ventende
+reknar=regner; rekne=regne; rekna=regnet; reknast=regnes; utrekning=utregning; utrekninga=utregningen; rekneskap=regnskap; rekneskapen=regnskapet; rekneskapsføraren=regnskapsføreren; rekneskapsførar=regnskapsfører
+fjernar=fjerner; startar=starter; trykkjer=trykker; trykkje=trykke; hugsar=husker; hugse=huske; hugsa=husket; passar=passer; støttar=støtter; sjekkar=sjekker; rettar=retter; rettast=rettes; ryddar=rydder
+søkjer=søker; søkje=søke; dreg=drar; teiknar=tegner; teikne=tegne; teikna=tegnet; teikn=tegn; teikning=tegning; planteikning=plantegning
+erstattar=erstatter; kryssar=krysser; lukkar=lukker; inneheld=inneholder; dekkjer=dekker; syner=viser; verkar=virker; festar=fester; leitar=leter
+brukast=brukes; fyllast=fylles; seljast=selges; sendast=sendes; skrivast=skrives; fordelast=fordeles; eksporterast=eksporteres; styrast=styres; visast=vises; skannast=skannes
+påbyrja=påbegynt; valde=valgte; valt=valgt; vald=valgt; velje=velge; slege=slått; slegne=slått; gløymt=glemt; gløyme=glemme
+valfritt=valgfritt; valfri=valgfri; vanleg=vanlig; vanlege=vanlige; mogleg=mulig; moglege=mulige; offentleg=offentlig; dagleg=daglig; synleg=synlig; synlege=synlige; tilgjengeleg=tilgjengelig; viktigaste=viktigste; lettare=lettere; endeleg=endelig; særleg=særlig; åtskild=atskilt; eigentleg=egentlig; heilt=helt; høgre=høyre; høgd=høyde; breidd=bredde; lengd=lengde; djupn=dybde; storleik=størrelse; storleiken=størrelsen
+namn=navn; namnet=navnet; namna=navnene; varenamn=varenavn; varenamnet=varenavnet; brukarnamnet=brukernavnet; namneknappen=navneknappen
+innhald=innhold; utsalsverdi=utsalgsverdi; utsalspris=utsalgspris; utsalsprisen=utsalgsprisen; salsdata=salgsdata; salstakt=salgstakt; nedsal=nedsalg; sal=salg; salet=salget
+sikkerheitskopi=sikkerhetskopi; sikkerheitskopiar=sikkerhetskopier; tryggleik=trygghet; samandrag=sammendrag; verdsetjing=verdsetting; grunngjeving=begrunnelse; førehandsvising=forhåndsvisning; førehandsvisinga=forhåndsvisningen; utskriftsvindauget=utskriftsvinduet; vindauge=vindu; vindauget=vinduet
+brukarhandbok=brukerhåndbok; brukarhandboka=brukerhåndboken; handbok=håndbok; handboka=håndboken; brukar=bruker; brukarar=brukere
+heimeskjermen=hjemskjermen; heimeskjerm=hjemskjerm; heim=hjem; nettlesaren=nettleseren; nettlesar=nettleser; nettlesardata=nettleserdata
+eining=enhet; eininga=enheten; einingar=enheter; einingane=enhetene; måleeining=måleenhet
+eigar=eier; leiar=leder; styreleiar=styreleder; tilsette=ansatte; tilsett=ansatt
+reolar=reoler; reolane=reolene; pallreolar=pallreoler; hallar=haller; hallane=hallene; seksjonar=seksjoner; seksjonane=seksjonene; telefonar=telefoner; telefonane=telefonene; knappar=knapper; knappane=knappene; kasseknappar=kassaknapper; kopiar=kopier; plakatar=plakater; plakatane=plakatene; benkar=benker; butikkar=butikker; rapportar=rapporter; nødutgangar=nødutganger; brannslokkar=brannslukker; brannslokkarar=brannslukkere; kodar=koder; kodane=kodene; satsar=satser; strekkodar=strekkoder; skruar=skruer; muttrar=muttere; prisar=priser; prisane=prisene; innkjøpsprisane=innkjøpsprisene; vanar=vaner; detaljar=detaljer; appar=apper; personar=personer; kundar=kunder; signaturar=signaturer; kolonnar=kolonner; kolonnane=kolonnene; kandidatar=kandidater; innstillingar=innstillinger; fargane=fargene; romma=rommene; firkantane=firkantene; piltastane=piltastene; einingar=enheter; dørar=dører; veggar=vegger; soner=soner; filer=filer; tellestader=tellesteder; tellestadene=tellestedene; tellestad=tellested; tellestaden=tellestedet
+teljeliste=telleliste; vara=varen; varelista=varelisten; lista=listen; linja=linjen; prøva=prøven; prøve=prøve; vekta=vekten; boksen=boksen; planen=planen; mappa=mappen; fila=filen; sida=siden; skjermen=skjermen; delinga=delingen; kassa=kassen; tida=tiden; datoen=datoen; avansen=avansen; rapporten=rapporten; teljinga=tellingen; kopla=koblet
+handskannar=håndskanner; skannar=skanner; skannaren=skanneren; kameraet=kameraet; vidvinkelkameraet=vidvinkelkameraet
+pengar=penger; hovudgruppe=hovedgruppe; tregast=tregest; rekkjer=rekker; rekkje=rekke; bilete=bilde; biletet=bildet; frigjere=frigjøre; kvardagen=hverdagen
+dømeplan=eksempelplan; døme=eksempel; dømebedrift=eksempelbedrift
+måndag=mandag; tysdag=tirsdag; laurdag=lørdag; sundag=søndag; starta=startet; avslutta=avsluttet; tald=talt; telt=telt; byrja=begynt; byrjar=begynner; byrje=begynne; bedrifta=bedriften; bedrifter=bedrifter; innan=innen; beheld=beholder; merkt=merket; føreslå=foreslå; lesar=leser; fjerna=fjernet; fjerne=fjerne; lagde=lagt; hand=hånd; skriven=skrevet; blanda=blandet; velkomen=velkommen; nnivå=nivå; nivå=nivå; nedst=nederst; øvst=øverst; nedste=nederste; øvste=øverste
+òg=også; berre=bare; heller=heller; ingenting=ingenting; alltid=alltid
+fyrst=først; fyrste=første; andre=andre; tredje=tredje
+vekt=vekt; veg=veier; vege=veie; vegast=veies
+nøkkelen=nøkkelen; tilgangsnøkkel=tilgangsnøkkel
+kjøl=kjøl; frys=frys
+gje=gi; gjev=gir; spør=spør; svar=svar
+oppsett=oppsett; oversikt=oversikt; døra=døren; inngang=inngang; inngangen=inngangen
+kvit=hvit; raud=rød; gul=gul; grøn=grønn; grønt=grønt; blå=blå
+hugs=husk; sjekk=sjekk; vel=velg; tel=tell; byt=bytt; set=sett; les=les
+etterpå=etterpå; undervegs=underveis; tilbake=tilbake; attende=tilbake; att=igjen; atter=igjen
+nesten=nesten; skikkeleg=skikkelig; tydeleg=tydelig; nøyaktig=nøyaktig; ferdige=ferdige
+mva=mva; inkl=inkl; eks=eks
+appen=appen; nettstaden=nettstedet; nettstad=nettsted
+lagnad=skjebne; skilt=skilt; ulik=ulik; ulike=ulike
+leggast=legges; leggjast=legges; dobbelttelling=dobbelttelling
+òg=også`);
+  return d;
+})();
+/* Verb der nynorsk har same form i presens og imperativ: [imperativ, presens] */
+const NB_VERB = {tel:['tell','teller'], vel:['velg','velger'], byt:['bytt','bytter'], set:['sett','setter'], sjå:['se','ser'], held:['hold','holder'], les:['les','leser'], gjer:['gjør','gjør'], tek:['ta','tar'], treng:['trenger','trenger'], gjev:['gi','gir'], ligg:['ligg','ligger'], teikn:['tegn','tegner'], hugs:['husk','husker'], veg:['vei','veier']};
+const NB_SUBJ = new Set(['du','de','dei','eg','me','vi','ho','han','som','appen','ein','kven','kva','kor','korleis','slik','når','der','her','den','det','dette','telefonen','eininga','lista','ikkje','alle','tilsette','ein','mobilen','du','også','òg']);
+const NB_IMP = new Set(['', '.', 'og', 'eller', 'så', 'først', 'fyrst', 'deretter', 'då', 'berre', 'no', 'så', 'gjerne', 'òg', 'elles', 'ikkje']);
+const NB_KVAR_HVOR = new Set(['er','ligg','står','finn','finst','går','skal','kjem','blir','vert','du','de','dei','eg','me','vi','ho','han','tala','appen','teljinga','lista','dei','kan','vil','må','var']);
+function nbCase(orig, ny){
+  if (!ny) return ny;
+  if (orig === orig.toUpperCase() && orig.length > 1 && orig !== orig.toLowerCase()) return ny.toUpperCase();
+  if (orig[0] === orig[0].toUpperCase() && orig[0] !== orig[0].toLowerCase()) return ny[0].toUpperCase() + ny.slice(1);
+  return ny;
+}
+const NB_PRON = new Set(['du','de','dei','eg','me','vi','han','ho','den','det','dere','jeg']);
+const NB_KVAR_HVER = new Set(['sin','si','sitt','sine','dag','gong','einaste','eineste','vare','time','ting','eining','linje','reol','seksjon','telefon','stad','tellar','ein','enkelt','einskild','veke','månad','år','gang','side','rad','hylle','kasse','person','tilsett','bruk']);
+/* Ligg ordet i ein sti, ei fil, ei nettadresse eller kode (t.d. «…/tilsett/», «plan.json», «#kople=»)? */
+function nbSti(tok, i){
+  let a = i, b = i;
+  while (a > 0 && !/\s/.test(tok[a - 1])) { a--; if (/\s/.test(tok[a])) { a++; break; } }
+  while (b < tok.length - 1 && !/\s/.test(tok[b + 1])) b++;
+  let run = tok.slice(a, b + 1).join('');
+  const l = tok.slice(0, i).join('').match(/\S*$/)[0], r = tok.slice(i + 1).join('').match(/^\S*/)[0];
+  run = l + tok[i] + r;
+  return /\/.*\/|\.(html?|json|js|png|pdf|xlsx|csv|com|no|io)\b|[#=_@]|^https?:|\$\{|\(\)|^[a-z]+\.[a-z]/i.test(run.replace(/[«»"'()]/g, m => m === '(' || m === ')' ? m : ''));
+}
+function nbTekst(t){
+  if (!t || !/[a-zæøåA-ZÆØÅ]/.test(t)) return t;
+  t = t.replace(/\bt\.d\./g, 'f.eks.');
+  const tok = t.match(/[A-Za-zÆØÅæøåÉéÒò]+|[^A-Za-zÆØÅæøåÉéÒò]+/g);
+  const isW = x => /^[A-Za-zÆØÅæøåÉéÒò]/.test(x);
+  let prev = '';
+  for (let i = 0; i < tok.length; i++){
+    const w = tok[i];
+    if (!isW(w)){ if (/[.!?:]\s*$/.test(w) || /[.!?:]\s/.test(w)) prev = '.'; else if (/[«(]/.test(w)) prev = '.'; continue; }
+    const before = i > 0 ? tok[i - 1] : '', after = i + 1 < tok.length ? tok[i + 1] : '';
+    const lw = w.toLowerCase();
+    const nextW = (after && /^\s+$/.test(after) && tok[i + 2]) ? tok[i + 2].toLowerCase() : '';
+    const p0 = prev; prev = lw;
+    // stiar, filnamn, adresser og kode blir ikkje rørte
+    if (nbSti(tok, i)) continue;
+    if (w.length > 1 && w === w.toUpperCase()) continue;
+    let ny;
+    if (lw === 'kvar'){
+      const hvor = !nextW || NB_KVAR_HVOR.has(nextW) || (!NB_KVAR_HVER.has(nextW) && /(ane|ene|a|en|et)$/.test(nextW) && nextW.length > 3);
+      ny = hvor ? 'hvor' : 'hver';
+    } else if (NB_VERB[lw]){
+      ny = (NB_IMP.has(p0) && !NB_PRON.has(nextW)) ? NB_VERB[lw][0] : NB_VERB[lw][1];
+    } else ny = NB_ORD[lw];
+    if (ny === undefined) continue;
+    tok[i] = nbCase(w, ny);
+  }
+  return tok.join('');
+}
+const NB_DONE = new WeakMap(), NB_ADONE = new WeakMap();
+function nbAttr(x, a){ const v = x.getAttribute(a); const m = NB_ADONE.get(x) || {}; if (m[a] === v) return; const nv = nbTekst(v); m[a] = nv; NB_ADONE.set(x, m); if (nv !== v) x.setAttribute(a, nv); }
+function nbBrukar(v){ try{ const f = window.NB_BRUKAR; return !!(f && f().has(v.trim())); }catch(e){ return false; } }
+function nbNode(n){
+  if (n.nodeType === 3){ const p = n.parentNode; if (!p || p.closest && p.closest('[translate="no"],script,style,textarea')) return; const v = n.nodeValue; if (NB_DONE.get(n) === v) return; if (nbBrukar(v)){ NB_DONE.set(n, v); return; } const nv = nbTekst(v); NB_DONE.set(n, nv); if (nv !== v) n.nodeValue = nv; return; }
+  if (n.nodeType !== 1) return;
+  if (n.matches && n.matches('[translate="no"],script,style,textarea')) return;
+  ['placeholder', 'title', 'aria-label'].forEach(a => { if (n.hasAttribute && n.hasAttribute(a)) nbAttr(n, a); });
+  if (n.tagName === 'INPUT' && (n.type === 'button' || n.type === 'submit')){ const v = n.value, nv = nbTekst(v); if (nv !== v) n.value = nv; }
+  const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let x; while ((x = tw.nextNode())){ if (x.nodeType === 1){ if (x.matches('[translate="no"],script,style,textarea')) continue; ['placeholder', 'title', 'aria-label'].forEach(a => { if (x.hasAttribute(a)) nbAttr(x, a); }); } else nbNode(x); }
+}
+function sprakStart(){
+  document.documentElement.lang = SPRAK === 'nb' ? 'nb' : 'nn';
+  if (SPRAK !== 'nb') return;
+  const go = () => {
+    nbNode(document.body); document.title = nbTekst(document.title);
+    new MutationObserver(ms => { for (const m of ms){ if (m.type === 'characterData') nbNode(m.target); else if (m.type === 'attributes') nbNode(m.target); else m.addedNodes.forEach(nbNode); } })
+      .observe(document.body, {childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['placeholder', 'title', 'aria-label']});
+    const dt = Object.getOwnPropertyDescriptor(Document.prototype, 'title');
+    if (dt && dt.set) Object.defineProperty(document, 'title', {get(){ return dt.get.call(document); }, set(v){ dt.set.call(document, nbTekst(v)); }, configurable:true});
+    const oc = window.confirm, oa = window.alert, op = window.prompt;
+    window.confirm = m => oc.call(window, nbTekst(m)); window.alert = m => oa.call(window, nbTekst(m)); window.prompt = (m, d) => op.call(window, nbTekst(m), d);
+  };
+  if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+}
+sprakStart();
+
+</script>
+<script>
+(function(){
+"use strict";
+const KEY='vt-planverktoy-v1', INN='vt-plan-inn', UT='vt-plan-ut', VTM='vt-planmodus';
+const TELJE={reol:1,hylle:1,pallreol:1,benk:1,kjol:1,kasse:1};
+const TYPES={
+  reol:{n:'Reol (to sider)',sw:'var(--reol)',w:200,h:50},
+  hylle:{n:'Hylle langs vegg',sw:'var(--shelf)',w:200,h:40},
+  pallreol:{n:'Pallreol',sw:'var(--pall)',w:270,h:110},
+  benk:{n:'Benk / maskin',sw:'var(--maskin)',w:200,h:80},
+  kjol:{n:'Kjøl / frys',sw:'var(--cold)',w:120,h:70},
+  kasse:{n:'Kasse / disk',sw:'var(--till)',w:150,h:70},
+  sone:{n:'Sone',sw:'var(--sone)',w:400,h:300},
+  vegg:{n:'Vegg',sw:'var(--wall)',w:300,h:15},
+  dor:{n:'Dør / port',sw:'var(--muted)',w:100,h:20},
+  nod:{n:'Nødutgang',sw:'var(--good)',w:100,h:20},
+  brann:{n:'Brannslokkar',sw:'var(--till)',w:40,h:40},
+  tekst:{n:'Tekst',sw:'transparent',w:0,h:0}
+};
+const LAYER={sone:0,vegg:1,dor:3,nod:3,brann:3,tekst:4};
+const svg=document.getElementById('plan'), insp=document.getElementById('insp'), statusEl=document.getElementById('status');
+let S=null, view='oversikt', selId=null, selHall=null, zoom=1, drag=null, F=20, undo=[], FLIP=false, lastTap={};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const first=s=>String(s||'').split('\n').map(x=>x.trim()).filter(Boolean)[0]||'';
+const snap=(v,st)=>Math.round(v/(st||10))*(st||10);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const m=cm=>(Math.round(cm)/100).toLocaleString('nb-NO',{maximumFractionDigits:2});
+
+/* ---------- data ---------- */
+function demo(){
+  const A='hA',B='hB';
+  const o=(hall,type,x,y,w,h,namn,extra)=>Object.assign({id:uid(),hall,type,x,y,w,h,namn,kode:'',sideA:'',sideB:'',hogde:'',merknad:'',lab:'auto'},extra||{});
+  return {versjon:1,demo:true,bedrift:'Dømebedrift AS',
+    hallar:[{id:A,namn:'Hall A · Lager',b:4000,l:2000,ox:0,oy:0},{id:B,namn:'Hall B · Verkstad',b:2500,l:1500,ox:4500,oy:250}],
+    objekt:[
+      o(A,'sone',200,850,2900,300,'Truckgang'),
+      o(A,'sone',3200,1250,780,730,'Mottak og utsending'),
+      o(A,'pallreol',300,200,2700,110,'Pallreol 1',{kode:'A-01',sideA:'Nivå 1: Sement\nNivå 2: Isolasjon\nNivå 3: Takstein',hogde:600}),
+      o(A,'pallreol',300,550,2700,110,'Pallreol 2',{kode:'A-02',sideA:'Nivå 1: Trelast\nNivå 2: Plater',hogde:600}),
+      o(A,'pallreol',300,1300,2700,110,'Pallreol 3',{kode:'A-03',sideA:'Nivå 1: Rør\nNivå 2: Koplingar',hogde:600}),
+      o(A,'pallreol',300,1650,2700,110,'Pallreol 4',{kode:'A-04',sideA:'Nivå 1: Tomt',hogde:600,merknad:'Ledig frå januar'}),
+      o(A,'dor',3400,1990,400,20,'Port 1'),
+      o(A,'nod',-10,920,20,120,'Nødutgang'),
+      o(A,'brann',60,1200,40,40,'Brannslokkar'),
+      o(B,'vegg',1700,0,15,600,'Kontorvegg'),
+      o(B,'vegg',1700,600,800,15,'Kontorvegg'),
+      o(B,'tekst',2100,320,0,0,'Kontor'),
+      o(B,'dor',1900,595,90,25,'Dør kontor'),
+      o(B,'benk',200,150,300,80,'Arbeidsbenk 1',{kode:'B-01'}),
+      o(B,'benk',650,150,300,80,'Arbeidsbenk 2',{kode:'B-02'}),
+      o(B,'benk',300,700,250,120,'Dreiebenk'),
+      o(B,'hylle',10,300,40,800,'Verktøyhylle',{kode:'B-H1',sideA:'Handverktøy\nElektroverktøy'}),
+      o(B,'reol',800,1000,600,60,'Reol 1',{kode:'B-R1',sideA:'Skruer og bolt',sideB:'Slipeutstyr'}),
+      o(B,'dor',1000,1490,400,20,'Port'),
+      o(B,'nod',2490,1000,20,120,'Nødutgang'),
+      o(B,'brann',2400,700,40,40,'Brannslokkar')
+    ]};
+}
+function blank(){return {versjon:1,bedrift:'Ny bedrift',hallar:[{id:'h'+uid(),namn:'Hall 1',b:2000,l:1000,ox:0,oy:0}],objekt:[]};}
+function valid(d){return d&&Array.isArray(d.hallar)&&Array.isArray(d.objekt)&&d.hallar.length>0&&d.hallar.every(h=>h&&h.id&&+h.b>0&&+h.l>0);}
+/* Reinsar ein plan før bruk: tal blir tal og tekst blir tekst, så ei importert fil ikkje kan smette kode inn i teikninga.
+   Sida deler nettadresse (og nettlesarlager) med varetellinga, så dette er viktig. */
+function clean(d){
+  const N=(v,def)=>{const n=Number(v); return isFinite(n)?n:(def||0);}, Sx=v=>v==null?'':String(v);
+  const LAB=['auto','over','under','venstre','hogre'];
+  const out={versjon:1,bedrift:Sx(d.bedrift)};
+  if(d.demo) out.demo=true; if(d.anslag) out.anslag=true;
+  out.hallar=d.hallar.map(h=>{const o={id:Sx(h.id),namn:Sx(h.namn),b:Math.max(1,N(h.b,1000)),l:Math.max(1,N(h.l,1000)),ox:N(h.ox),oy:N(h.oy)}; if(h.rot) o.rot=N(h.rot); if(h.ute) o.ute=true; return o;});
+  const hid=new Set(out.hallar.map(h=>h.id));
+  out.objekt=d.objekt.filter(o=>o&&hid.has(Sx(o.hall))).map(o=>{const r={id:Sx(o.id)||uid(),hall:Sx(o.hall),type:TYPES[o.type]?o.type:'benk',x:N(o.x),y:N(o.y),w:Math.max(0,N(o.w)),h:Math.max(0,N(o.h)),
+    namn:Sx(o.namn),kode:Sx(o.kode),sideA:Sx(o.sideA),sideB:Sx(o.sideB),hogde:o.hogde===''||o.hogde==null?'':N(o.hogde),merknad:Sx(o.merknad),lab:LAB.includes(o.lab)?o.lab:'auto'};
+    if(o.rot) r.rot=N(o.rot); if(o.mva!==undefined&&o.mva!==null&&o.mva!==''&&[25,15,12,0].includes(+o.mva)) r.mva=+o.mva; return r;});
+  const bg=d.bakgrunn;
+  if(bg&&typeof bg.src==='string'&&/^(data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+|https:\/\/[^"'<>\s]+)$/.test(bg.src)) out.bakgrunn={src:bg.src,x:N(bg.x),y:N(bg.y),w:Math.max(1,N(bg.w,1000)),h:Math.max(1,N(bg.h,1000))};
+  return out;
+}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(valid(d)) return clean(d);}catch(e){}
+  return demo();
+}
+let saveT=null;
+function changed(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{
+    try{localStorage.setItem(KEY,JSON.stringify(S)); statusEl.classList.remove('err');
+      statusEl.textContent='Lagra på denne maskina '+new Date().toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});}
+    catch(e){statusEl.classList.add('err'); statusEl.textContent='Nettlesaren lagrar ikkje. Bruk «Eksporter».';}
+  },250);
+}
+function pushUndo(){undo.push(JSON.stringify(S)); if(undo.length>60) undo.shift(); document.getElementById('undo').disabled=false;}
+const hall=id=>S.hallar.find(h=>h.id===id);
+const obj=id=>S.objekt.find(o=>o.id===id);
+
+/* ---------- svg helpers ---------- */
+function T(x,y,s,cls,size,rot,anchor){
+  let tr=rot?'rotate(-90 '+x+' '+y+')':'';
+  if(FLIP){const px=rot?x-size*0.35:x, py=rot?y:y-size*0.35; tr='rotate(180 '+px+' '+py+')'+(tr?' '+tr:'');}
+  return '<text class="'+cls+'" x="'+x+'" y="'+y+'" font-size="'+size+'" text-anchor="'+(anchor||'middle')+'"'+(tr?' transform="'+tr+'"':'')+'>'+esc(s)+'</text>';
+}
+const nrm=a=>((a%360)+360)%360;
+function flipFor(r){const a=nrm(r||0); return a>90.5&&a<=270.5;}
+function rotAttr(r,cx,cy){return r?' transform="rotate('+r+' '+cx+' '+cy+')"':'';}
+function boxOf(kind,t){
+  if(kind==='hall') return {x:t.ox,y:t.oy,w:t.b,h:t.l,rot:t.rot||0};
+  if(t.type==='tekst'){const w=Math.max(F*3,(t.namn||'Tekst').length*F*0.55)+F*0.6; return {x:t.x-w/2,y:t.y-F*1.2,w,h:F*1.6,rot:t.rot||0};}
+  return {x:t.x,y:t.y,w:t.w,h:t.h,rot:t.rot||0};
+}
+function setBox(kind,t,b){ if(kind==='hall'){t.ox=b.x;t.oy=b.y;t.b=b.w;t.l=b.h;} else {t.x=b.x;t.y=b.y;t.w=b.w;t.h=b.h;} }
+const HD=[['nw',-1,-1],['n',0,-1],['ne',1,-1],['e',1,0],['se',1,1],['s',0,1],['sw',-1,1],['w',-1,0]];
+const HA={e:0,se:45,s:90,sw:135,w:180,nw:225,n:270,ne:315};
+function cursorFor(n,r){return ['ew-resize','nwse-resize','ns-resize','nesw-resize'][Math.round(nrm(HA[n]+r)%180/45)%4];}
+function overlay(b,canSize){
+  const cx=b.x+b.w/2, cy=b.y+b.h/2, pad=F*0.25, hs=F*0.6, x=b.x-pad, y=b.y-pad, w=b.w+2*pad, h=b.h+2*pad, ry=y-F*1.8;
+  let s='<g'+rotAttr(b.rot,cx,cy)+'>';
+  s+='<rect class="selbox" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" stroke-width="'+F*0.1+'"/>';
+  s+='<line class="rotline" x1="'+cx+'" y1="'+y+'" x2="'+cx+'" y2="'+(ry+F*0.5)+'" stroke-width="'+F*0.1+'"/>';
+  s+='<circle class="rothandle" data-rh="1" cx="'+cx+'" cy="'+ry+'" r="'+F*0.5+'" stroke-width="'+F*0.14+'"><title>Dra for å rotere</title></circle>';
+  if(canSize){
+    const thinH=b.h<F*1.5, thinW=b.w<F*1.5;
+    const show=thinH&&thinW?['se']:thinH?['e','w']:thinW?['n','s']:null;
+    HD.forEach(([n,sx,sy])=>{ if(show&&!show.includes(n)) return;
+      const hx=cx+sx*w/2, hy=cy+sy*h/2;
+      s+='<rect class="handle" data-hd="'+sx+','+sy+'" x="'+(hx-hs/2)+'" y="'+(hy-hs/2)+'" width="'+hs+'" height="'+hs+'" rx="'+hs*0.2+'" stroke-width="'+F*0.1+'" style="cursor:'+cursorFor(n,b.rot)+'"><title>Dra for å endre storleik</title></rect>';
+    });
+  }
+  return s+'</g>';
+}
+function trunc(s,len,size){const mx=Math.max(4,Math.floor(len/(size*0.56))); return s.length>mx?s.slice(0,mx-1)+'…':s;}
+function pt(e){const p=svg.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse());}
+
+/* ---------- hall view ---------- */
+function labelOut(o,s,side,sz){
+  const cx=o.x+o.w/2, cy=o.y+o.h/2, g=sz*0.4, horiz=o.w>=o.h;
+  s=trunc(s,(horiz?o.w:o.h)+sz*6,sz);
+  if(side==='over') return T(cx,o.y-g,s,'lt',sz);
+  if(side==='under') return T(cx,o.y+o.h+g+sz*0.8,s,'lt',sz);
+  if(side==='venstre') return T(o.x-g,cy,s,'lt',sz,true);
+  return T(o.x+o.w+g+sz*0.8,cy,s,'lt',sz,true);
+}
+function autoSide(o,h){
+  const horiz=o.w>=o.h;
+  if(horiz) return (o.y+o.h/2)<h.l/2?'under':'over';
+  return (o.x+o.w/2)<h.b/2?'hogre':'venstre';
+}
+function labelIn(o,s,cls,sz){
+  const cx=o.x+o.w/2, cy=o.y+o.h/2, horiz=o.w>=o.h, rot=!horiz&&o.w<sz*4;
+  const len=(rot?o.h:o.w)*0.92, thick=rot?o.w:o.h;
+  const z=Math.max(sz*0.55,Math.min(sz,thick*0.7,len/(Math.max(1,s.length)*0.56)));
+  if(rot) return T(cx+z*0.33,cy,trunc(s,len,z),cls,z,true);
+  return T(cx,cy+z*0.33,trunc(s,len,z),cls,z);
+}
+function pre(o,s){return o.kode?(s?o.kode+' · '+s:o.kode):s;}
+function renderObj(o,h,q){ FLIP=flipFor(o.rot); const r=renderObjIn(o,h,q); FLIP=false; return r; }
+function renderObjIn(o,h,q){
+  const sz=F, hit=q&&matches(o,q);
+  const rc=o.type==='tekst'?[o.x,o.y-sz*0.4]:[o.x+o.w/2,o.y+o.h/2];
+  let g='<g class="obj'+(hit?' hit':'')+'" data-id="'+esc(o.id)+'"'+rotAttr(o.rot,rc[0],rc[1])+'>';
+  if(o.type==='tekst'){
+    const s=o.namn||'Tekst', w=Math.max(sz*3,s.length*sz*0.55);
+    g+='<rect class="hitbox shape" x="'+(o.x-w/2-sz*0.3)+'" y="'+(o.y-sz*1.2)+'" width="'+(w+sz*0.6)+'" height="'+(sz*1.6)+'" rx="'+sz*0.2+'" stroke-width="'+sz*0.15+'"/>';
+    return g+T(o.x,o.y,s,'lb',sz*1.2)+'</g>';
+  }
+  const sw=o.type==='sone'?sz*0.08:sz*0.25;
+  if(o.type==='brann'){
+    const r=Math.min(o.w,o.h)/2;
+    g+='<circle class="shape t-brann" cx="'+(o.x+o.w/2)+'" cy="'+(o.y+o.h/2)+'" r="'+r+'" stroke-width="'+sw+'"/>';
+    g+='<rect class="hitbox" x="'+o.x+'" y="'+o.y+'" width="'+o.w+'" height="'+o.h+'"/>';
+    const rt=(o.x+o.w/2)>h.b*0.7;
+    return g+T(rt?o.x-sz*0.4:o.x+o.w+sz*0.4,o.y+o.h/2+sz*0.3,o.namn||'Brannslokkar','lq',sz*0.85,false,rt?'end':'start')+'</g>';
+  }
+  g+='<rect class="shape t-'+o.type+'" x="'+o.x+'" y="'+o.y+'" width="'+o.w+'" height="'+o.h+'" rx="'+(o.type==='sone'?sz*0.3:sz*0.08)+'" stroke-width="'+sw+'"/>';
+  const thick=Math.min(o.w,o.h), horiz=o.w>=o.h, A=first(o.sideA), B=first(o.sideB), N=o.namn||TYPES[o.type].n;
+  const lab=(o.lab&&o.lab!=='auto')?o.lab:autoSide(o,h);
+  if(o.type==='reol'){
+    if(thick>=sz*2.6){
+      const lines=[pre(o,A||N),B].filter(Boolean);
+      lines.forEach((s,i)=>{const off=(i-(lines.length-1)/2)*sz*1.15;
+        g+=horiz?T(o.x+o.w/2,o.y+o.h/2+off+sz*0.33,trunc(s,o.w,sz),'in-light',sz):T(o.x+o.w/2+off+sz*0.33,o.y+o.h/2,trunc(s,o.h,sz),'in-light',sz,true);});
+    } else {
+      g+=labelOut(o,pre(o,A||N),horiz?'over':'venstre',sz);
+      if(B) g+=labelOut(o,B,horiz?'under':'hogre',sz);
+    }
+  } else if(o.type==='hylle'){
+    const s=pre(o,A||N);
+    g+=thick>=sz*1.2?labelIn(o,s,'in-ink',sz):labelOut(o,s,lab,sz);
+  } else if(o.type==='pallreol'||o.type==='benk'){
+    const s=pre(o,N);
+    g+=thick>=sz*1.2?labelIn(o,s,'in-light',sz):labelOut(o,s,lab,sz);
+  } else if(o.type==='kjol'){
+    g+=thick>=sz*1.0?labelIn(o,N,'in-ink',sz):labelOut(o,N,lab,sz);
+  } else if(o.type==='kasse'){
+    g+=thick>=sz*1.0?labelIn(o,N,'in-till',sz):labelOut(o,N,lab,sz);
+  } else if(o.type==='sone'){
+    g+=T(o.x+sz*0.5,o.y+sz*1.2,trunc(N,o.w,sz),'sone-t',sz,false,'start');
+  } else if(o.type==='dor'||o.type==='nod'){
+    if(o.type==='nod'||o.namn) g+=labelOut(o,N,lab==='auto'?autoSide(o,h):lab,sz*0.85);
+  }
+  return g+'</g>';
+}
+function renderHall(){
+  const h=hall(view); const q=curQuery();
+  const M=Math.max(150,Math.max(h.b,h.l)*0.08);
+  const vw=h.b+2*M, vh=h.l+2*M; F=vw/55;
+  const W=Math.max(12,vw/170);
+  svg.setAttribute('viewBox',(-M)+' '+(-M)+' '+vw+' '+vh);
+  svg.setAttribute('aria-label','Planteikning av '+h.namn);
+  const objs=S.objekt.filter(o=>o.hall===h.id).sort((a,b)=>(LAYER[a.type]??2)-(LAYER[b.type]??2)||(b.w*b.h)-(a.w*a.h));
+  let s='<defs><pattern id="g" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="var(--gridc)" stroke-width="'+(W/5)+'"/></pattern></defs>';
+  s+='<rect class="floor" x="0" y="0" width="'+h.b+'" height="'+h.l+'"/>';
+  s+='<rect x="0" y="0" width="'+h.b+'" height="'+h.l+'" fill="url(#g)"/>';
+  s+='<rect class="hallwall" x="0" y="0" width="'+h.b+'" height="'+h.l+'" stroke-width="'+W+'"/>';
+  s+=T(0,-M*0.35,h.namn+' · '+m(h.b)+' × '+m(h.l)+' m','lb',F*1.25,false,'start');
+  const bar=h.b>=1500?500:100, by=h.l+M*0.55;
+  s+='<path class="scale" d="M0 '+(by-F*0.4)+'V'+by+'H'+bar+'V'+(by-F*0.4)+'" stroke-width="'+(W/2.5)+'"/>'+T(bar+F*0.5,by,(bar/100)+' m','lq',F*0.85,false,'start');
+  s+=objs.map(o=>renderObj(o,h,q)).join('');
+  const o=obj(selId);
+  if(o&&o.hall===h.id) s+=overlay(boxOf('obj',o),o.type!=='tekst');
+  svg.innerHTML=s;
+}
+
+/* ---------- oversikt ---------- */
+function renderSite(){
+  const hs=S.hallar, bg=S.bakgrunn;
+  const pts=[]; hs.forEach(h=>{const cx=h.ox+h.b/2, cy=h.oy+h.l/2, r=(h.rot||0)*Math.PI/180, c=Math.cos(r), sn=Math.sin(r);
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{const lx=a*h.b/2, ly=b*h.l/2; pts.push([cx+lx*c-ly*sn, cy+lx*sn+ly*c]);});});
+  let x0=Math.min(...pts.map(q=>q[0])), y0=Math.min(...pts.map(q=>q[1])), x1=Math.max(...pts.map(q=>q[0])), y1=Math.max(...pts.map(q=>q[1]));
+  if(bg){x0=Math.min(x0,bg.x); y0=Math.min(y0,bg.y); x1=Math.max(x1,bg.x+bg.w); y1=Math.max(y1,bg.y+bg.h);}
+  const M=bg?Math.max(x1-x0,y1-y0)*0.06:Math.max(600,Math.max(x1-x0,y1-y0)*0.12), vw=x1-x0+2*M, vh=y1-y0+2*M; F=vw/55;
+  svg.setAttribute('viewBox',(x0-M)+' '+(y0-M)+' '+vw+' '+vh);
+  svg.setAttribute('aria-label','Områdekart med alle hallar');
+  let s='';
+  if(bg) s+='<image href="'+esc(bg.src)+'" x="'+bg.x+'" y="'+bg.y+'" width="'+bg.w+'" height="'+bg.h+'" opacity="0.75" preserveAspectRatio="none"/>';
+  hs.forEach(h=>{
+    const cx=h.ox+h.b/2, cy=h.oy+h.l/2, dim=m(h.b)+' × '+m(h.l)+' m';
+    const z1=Math.min(F*1.3,h.l*0.42,h.b*0.9/(Math.max(1,h.namn.length)*0.56)), z2=Math.min(F*0.9,h.l*0.3,h.b*0.9/(dim.length*0.5));
+    FLIP=flipFor(h.rot);
+    s+='<g class="hallbox" data-hid="'+esc(h.id)+'"'+rotAttr(h.rot,cx,cy)+'><rect class="hb" x="'+h.ox+'" y="'+h.oy+'" width="'+h.b+'" height="'+h.l+'" stroke-width="'+F*0.2+'" rx="'+F*0.15+'"'
+      +(bg?' fill-opacity="'+(h.ute?0.35:0.8)+'"':'')+(h.ute?' stroke-dasharray="'+F*0.6+' '+F*0.4+'"':'')+'/>'
+      +T(cx,cy-z1*0.1,h.namn,'lb',z1)+T(cx,cy+z2*1.1,dim,'lq',z2)+'</g>';
+    FLIP=false;
+  });
+  const sh=hall(selHall); if(sh) s+=overlay(boxOf('hall',sh),true);
+  s+=T(x0-M*0.5,y0-M*0.35,'Trykk på ein hall for å velje han, dobbeltklikk for å opne han.','lq',F*0.8,false,'start');
+  svg.innerHTML=s;
+}
+
+function render(){
+  document.getElementById('bedrift').textContent=S.bedrift||'Plan';
+  document.title=(S.bedrift?S.bedrift+' · ':'')+'Planverktøy';
+  const bn=document.getElementById('banner'); bn.hidden=!(S.demo||S.anslag);
+  bn.textContent=S.anslag?'Måla og plasseringa av hallane er anslått frå flyfotoet. Skriv inn ekte breidd og lengd under kvar hall, så stemmer målestokken.':'Dette er ein dømeplan, så du ser korleis verktøyet verkar. Trykk «Ny tom plan» når du vil starte med dine eigne hallar.';
+  if(view!=='oversikt'&&!hall(view)) view='oversikt';
+  svg.style.width=(zoom*100)+'%';
+  if(view==='oversikt') renderSite(); else renderHall();
+  renderTabs(); renderResults();
+  document.querySelectorAll('[data-add]').forEach(b=>b.disabled=view==='oversikt');
+  document.getElementById('zoomout').disabled=zoom<=1; document.getElementById('zoomin').disabled=zoom>=4;
+}
+function renderTabs(){
+  const t=document.getElementById('tabs');
+  t.innerHTML='<button class="tab" role="tab" data-v="oversikt" aria-selected="'+(view==='oversikt')+'">Områdekart</button>'
+   +S.hallar.map(h=>'<button class="tab" role="tab" data-v="'+esc(h.id)+'" aria-selected="'+(view===h.id)+'">'+esc(h.namn)+'</button>').join('')
+   +'<button class="tab add" id="addhall">+ Ny hall</button>';
+}
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.id==='addhall'){ addHall(); return; }
+  view=b.dataset.v; selId=null; selHall=null; render(); renderInsp();
+});
+function addHall(){
+  pushUndo();
+  const x=S.hallar.length?Math.max(...S.hallar.map(h=>h.ox+h.b))+500:0;
+  const h={id:'h'+uid(),namn:'Hall '+(S.hallar.length+1),b:2000,l:1000,ox:x,oy:0};
+  S.hallar.push(h); view=h.id; selId=null; selHall=null; changed(); render(); renderInsp();
+  const f=document.getElementById('h-namn'); if(f){f.focus(); f.select();}
+}
+
+/* ---------- inspector ---------- */
+function bind(id,fn,isNum){
+  const el=document.getElementById(id); if(!el) return;
+  let snapd=null;
+  el.addEventListener('focus',()=>{snapd=JSON.stringify(S);});
+  el.addEventListener('input',()=>{ if(snapd){undo.push(snapd); if(undo.length>60) undo.shift(); document.getElementById('undo').disabled=false; snapd=null;}
+    fn(isNum?(el.value===''?'':Number(el.value)):el.value); changed(); render(); });
+}
+function twoStep(btn,label,fn){
+  let t=null;
+  btn.addEventListener('click',()=>{
+    if(!btn.classList.contains('armed')){btn.classList.add('armed'); btn.textContent='Trykk igjen for å stadfeste';
+      t=setTimeout(()=>{btn.classList.remove('armed'); btn.textContent=label;},3500); return;}
+    clearTimeout(t); btn.classList.remove('armed'); btn.textContent=label; fn();
+  });
+}
+function hallPanel(h,onSite){
+  insp.innerHTML='<h2>Hall</h2>'
+    +'<label class="f">Namn<input id="h-namn" value="'+esc(h.namn)+'"></label>'
+    +'<div class="row2"><label class="f">Breidd (m)<input id="h-b" type="number" min="1" step="0.5" value="'+h.b/100+'"></label>'
+    +'<label class="f">Lengd (m)<input id="h-l" type="number" min="1" step="0.5" value="'+h.l/100+'"></label></div>'
+    +'<label class="f">Vinkel på områdekartet (°)<input id="h-rot" type="number" step="1" value="'+(h.rot||0)+'"></label>'
+    +(onSite?'<p class="hint">Dra hallen for å flytte han. Dra i dei kvite firkantane for å endre storleik, og i den runde over for å rotere.</p>'
+      :'<p class="hint">Vel noko på planen for å endre det, eller legg til nytt med knappane over. Dra for å flytte. Dra i dei kvite firkantane for å endre storleik, og i den runde over for å rotere. Piltastane flyttar 10 cm, eller 50 cm med Shift.</p>')
+    +'<div class="acts">'+(onSite?'<button class="btn" id="h-open">Opne hallen</button>':'')+'<button class="btn danger" id="h-del">Slett hallen</button></div>';
+  bind('h-namn',v=>{h.namn=v;}); bind('h-b',v=>{if(v>0) h.b=Math.round(v*100);},true); bind('h-l',v=>{if(v>0) h.l=Math.round(v*100);},true); bind('h-rot',v=>{h.rot=v===''?0:v;},true);
+  const op=document.getElementById('h-open'); if(op) op.addEventListener('click',()=>{view=h.id; selHall=null; selId=null; render(); renderInsp();});
+  twoStep(document.getElementById('h-del'),'Slett hallen',()=>{ if(S.hallar.length<2){statusEl.textContent='Planen må ha minst éin hall.';return;}
+    pushUndo(); S.objekt=S.objekt.filter(x=>x.hall!==h.id); S.hallar=S.hallar.filter(x=>x.id!==h.id); view='oversikt'; selHall=null; changed(); render(); renderInsp();});
+}
+function renderInsp(){
+  if(view==='oversikt'&&hall(selHall)){ hallPanel(hall(selHall),true); return; }
+  if(view==='oversikt'){
+    insp.innerHTML='<h2>Bedrift</h2><label class="f">Namn<input id="b-namn" value="'+esc(S.bedrift)+'"></label>'
+      +'<p>'+S.hallar.length+' hallar og '+S.objekt.length+' objekt i planen.</p>'
+      +'<ul class="list">'+S.hallar.map(h=>'<li><button data-open="'+esc(h.id)+'">'+esc(h.namn)+'<small>'+m(h.b)+' × '+m(h.l)+' m</small></button></li>').join('')+'</ul>'
+      +'<div class="acts"><button class="btn" id="b-addhall">+ Ny hall</button></div>'
+      +'<p class="hint">Planen blir lagra i denne nettlesaren. Bruk «Eksporter» for å ta vare på han eller sende han til andre, og «Importer» for å opne ein plan du har fått.</p>';
+    bind('b-namn',v=>{S.bedrift=v;});
+    insp.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.open; selId=null; selHall=null; render(); renderInsp();}));
+    document.getElementById('b-addhall').addEventListener('click',addHall);
+    return;
+  }
+  const h=hall(view), o=obj(selId);
+  if(!o){ hallPanel(h,false);
+    return;
+  }
+  const isText=o.type==='tekst', two=o.type==='reol';
+  const aLabel={reol:'Side A (over / venstre)',pallreol:'Innhald per nivå, nedst først',hylle:'Innhald',benk:'Utstyr / skildring',kjol:'Innhald',kasse:'Merknad på disken',sone:'Skildring'}[o.type]||'Innhald';
+  const noContent=['vegg','dor','nod','brann','tekst'].includes(o.type);
+  insp.innerHTML='<h2>'+esc(TYPES[o.type].n)+'</h2>'
+    +'<div class="row2"><label class="f">Namn<input id="o-namn" value="'+esc(o.namn)+'"></label>'
+    +(isText?'':'<label class="f">Lokasjonskode<input id="o-kode" value="'+esc(o.kode)+'" placeholder="t.d. A-12-3"></label>')+'</div>'
+    +(noContent?'':'<label class="f">'+aLabel+'<textarea id="o-sideA" rows="3" placeholder="Éi linje per vare eller nivå">'+esc(o.sideA)+'</textarea></label>')
+    +(two?'<label class="f">Side B (under / høgre)<textarea id="o-sideB" rows="3">'+esc(o.sideB)+'</textarea></label>':'')
+    +(isText?'':'<div class="row4"><label class="f">X (cm)<input id="o-x" type="number" step="10" value="'+o.x+'"></label><label class="f">Y (cm)<input id="o-y" type="number" step="10" value="'+o.y+'"></label><label class="f">Breidd<input id="o-w" type="number" min="10" step="10" value="'+o.w+'"></label><label class="f">Djupn<input id="o-h" type="number" min="10" step="10" value="'+o.h+'"></label></div>')
+    +'<div class="row2">'+(isText?'':'<label class="f">Høgd (cm)<input id="o-hogde" type="number" min="0" step="10" value="'+esc(o.hogde)+'"></label>')
+      +'<label class="f">Vinkel (°)<input id="o-rot-v" type="number" step="1" value="'+(o.rot||0)+'"></label></div>'
+    +(TELJE[o.type]?'<p class="hint">Dette blir ein tellestad i varetellinga. Lokasjonskoden blir koden på tellelista; står feltet tomt, lagar varetellinga ein (t.d. A01).</p>':'')
+    +(isText?'':'<label class="f">Type<select id="o-type">'+Object.keys(TYPES).filter(t=>t!=='tekst').map(t=>'<option value="'+t+'"'+(t===o.type?' selected':'')+'>'+TYPES[t].n+'</option>').join('')+'</select></label>')
+    +(isText||two||o.type==='sone'?'':'<label class="f">Etikett<select id="o-lab">'+[['auto','Automatisk'],['over','Over'],['under','Under'],['venstre','Venstre'],['hogre','Høgre']].map(([v,l])=>'<option value="'+v+'"'+((o.lab||'auto')===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label>')
+    +(TELJE[o.type]?'<label class="f">Mva-sats ved varetelling<select id="o-mva">'+[['','Blanda (vel per vare)'],['25','25 %'],['15','15 % (mat og drikke)'],['12','12 %'],['0','0 %']].map(([v,l])=>'<option value="'+v+'"'+(String(o.mva==null?'':o.mva)===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label>':'')
+    +(isText?'':'<label class="f">Merknad<textarea id="o-merknad" rows="2">'+esc(o.merknad)+'</textarea></label>')
+    +'<div class="acts"><button class="btn" id="o-rot">+90°</button><button class="btn" id="o-dup">Kopier</button><button class="btn danger" id="o-del">Slett</button></div>'
+    +'<p class="hint">Mål i cm. Dra i dei kvite firkantane for å endre storleik, og i den runde over objektet for å rotere. Rotasjonen festar seg på 0°, 90°, 180° og 270°, og held du inne Shift, går han i steg på 15°.</p>';
+  ['namn','kode','sideA','sideB','merknad'].forEach(k=>bind('o-'+k,v=>{o[k]=v;}));
+  ['x','y'].forEach(k=>bind('o-'+k,v=>{if(v!=='') o[k]=v;},true));
+  ['w','h'].forEach(k=>bind('o-'+k,v=>{if(v>=10) o[k]=v;},true));
+  bind('o-hogde',v=>{o.hogde=v;},true);
+  bind('o-rot-v',v=>{o.rot=v===''?0:v;},true);
+  const ty=document.getElementById('o-type'); if(ty) ty.addEventListener('change',()=>{pushUndo(); o.type=ty.value; changed(); render(); renderInsp();});
+  const mv=document.getElementById('o-mva'); if(mv) mv.addEventListener('change',()=>{pushUndo(); if(mv.value==='') delete o.mva; else o.mva=+mv.value; changed();});
+  const lb=document.getElementById('o-lab'); if(lb) lb.addEventListener('change',()=>{pushUndo(); o.lab=lb.value; changed(); render();});
+  document.getElementById('o-rot').addEventListener('click',()=>{pushUndo(); let a=nrm((o.rot||0)+90); if(a>180) a-=360; o.rot=a; changed(); render(); renderInsp();});
+  document.getElementById('o-dup').addEventListener('click',()=>{pushUndo(); const c=JSON.parse(JSON.stringify(o)); c.id=uid(); c.x+=50; c.y+=50; c.namn=(c.namn||'')+' (kopi)'; S.objekt.push(c); selId=c.id; changed(); render(); renderInsp();});
+  twoStep(document.getElementById('o-del'),'Slett',()=>{pushUndo(); S.objekt=S.objekt.filter(x=>x.id!==o.id); selId=null; changed(); render(); renderInsp();});
+}
+
+/* ---------- add ---------- */
+const addgrp=document.getElementById('addgrp');
+addgrp.insertAdjacentHTML('beforeend',Object.keys(TYPES).map(t=>'<button class="btn" data-add="'+t+'"><span class="sw" style="background:'+TYPES[t].sw+(t==='tekst'?';border:1px dashed var(--muted)':'')+'"></span>'+TYPES[t].n+'</button>').join(''));
+addgrp.addEventListener('click',e=>{
+  const b=e.target.closest('[data-add]'); if(!b||view==='oversikt') return;
+  const t=b.dataset.add, d=TYPES[t], h=hall(view); pushUndo();
+  const o={id:uid(),hall:h.id,type:t,x:snap(h.b/2-d.w/2),y:snap(h.l/2-d.h/2),w:d.w,h:d.h,namn:t==='tekst'?'Ny tekst':'',kode:'',sideA:'',sideB:'',hogde:'',merknad:'',lab:'auto'};
+  if(t==='tekst'){o.x=snap(h.b/2); o.y=snap(h.l/2);}
+  S.objekt.push(o); selId=o.id; changed(); render(); renderInsp();
+  const n=document.getElementById('o-namn'); if(n) n.focus();
+});
+
+/* ---------- pointer ---------- */
+svg.addEventListener('pointerdown',e=>{
+  const site=view==='oversikt';
+  const rh=e.target.closest('[data-rh]'), hd=e.target.closest('[data-hd]');
+  const cur=site?hall(selHall):obj(selId);
+  if((rh||hd)&&cur){
+    e.preventDefault(); const kind=site?'hall':'obj';
+    drag={mode:rh?'rot':'size',kind,t:cur,b0:boxOf(kind,cur),p0:pt(e),moved:false,snap:JSON.stringify(S)};
+    if(hd){const v=hd.dataset.hd.split(',').map(Number); drag.sx=v[0]; drag.sy=v[1];}
+    svg.setPointerCapture(e.pointerId); return;
+  }
+  if(site){
+    const g=e.target.closest('.hallbox');
+    if(!g){ if(selHall){selHall=null; render(); renderInsp();} return; }
+    e.preventDefault(); const h=hall(g.dataset.hid);
+    if(selHall!==h.id){selHall=h.id; render(); renderInsp();}
+    drag={mode:'move',kind:'hall',t:h,o0:{x:h.ox,y:h.oy},p0:pt(e),moved:false,snap:JSON.stringify(S)}; svg.setPointerCapture(e.pointerId); return;
+  }
+  const g=e.target.closest('.obj');
+  if(g){ e.preventDefault(); const o=obj(g.dataset.id); if(selId!==o.id){selId=o.id; render(); renderInsp();}
+    drag={mode:'move',kind:'obj',t:o,o0:{x:o.x,y:o.y},p0:pt(e),moved:false,snap:JSON.stringify(S)}; svg.setPointerCapture(e.pointerId); return; }
+  if(selId){selId=null; render(); renderInsp();}
+});
+svg.addEventListener('pointermove',e=>{
+  if(!drag) return; const p=pt(e), dx=p.x-drag.p0.x, dy=p.y-drag.p0.y;
+  if(!drag.moved&&Math.abs(dx)+Math.abs(dy)>F*0.3) drag.moved=true; if(!drag.moved) return;
+  const hallK=drag.kind==='hall';
+  if(drag.mode==='move'){
+    const st=hallK?100:10;
+    if(hallK){drag.t.ox=snap(drag.o0.x+dx,st); drag.t.oy=snap(drag.o0.y+dy,st);} else {drag.t.x=snap(drag.o0.x+dx,st); drag.t.y=snap(drag.o0.y+dy,st);}
+  } else if(drag.mode==='size'){
+    const b0=drag.b0, st=hallK?50:10, r=b0.rot*Math.PI/180, c=Math.cos(r), sn=Math.sin(r);
+    const du=dx*c+dy*sn, dv=-dx*sn+dy*c;
+    const w=drag.sx?Math.max(st,snap(b0.w+drag.sx*du,st)):b0.w, hh=drag.sy?Math.max(st,snap(b0.h+drag.sy*dv,st)):b0.h;
+    const lx=drag.sx*(w-b0.w)/2, ly=drag.sy*(hh-b0.h)/2;
+    const cx=b0.x+b0.w/2+lx*c-ly*sn, cy=b0.y+b0.h/2+lx*sn+ly*c;
+    setBox(drag.kind,drag.t,{x:Math.round(cx-w/2),y:Math.round(cy-hh/2),w,h:hh});
+  } else {
+    const b0=drag.b0, cx=b0.x+b0.w/2, cy=b0.y+b0.h/2;
+    let a=Math.atan2(p.y-cy,p.x-cx)*180/Math.PI+90;
+    if(e.shiftKey) a=Math.round(a/15)*15; else { a=Math.round(a); const n90=Math.round(a/90)*90; if(Math.abs(a-n90)<=5) a=n90; }
+    a=nrm(a); if(a>180) a-=360; drag.t.rot=a;
+  }
+  render();
+});
+function endDrag(){
+  if(!drag) return; const d=drag; drag=null;
+  if(d.moved){undo.push(d.snap); if(undo.length>60) undo.shift(); document.getElementById('undo').disabled=false; changed(); renderInsp(); return;}
+  if(d.kind==='hall'&&d.mode==='move'){
+    const now=Date.now();
+    if(lastTap.id===d.t.id&&now-lastTap.t<450){view=d.t.id; selId=null; selHall=null; lastTap={}; render(); renderInsp();}
+    else lastTap={id:d.t.id,t:now};
+  }
+}
+svg.addEventListener('pointerup',endDrag); svg.addEventListener('pointercancel',endDrag);
+let nudgeT=null;
+document.addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const k={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key]; if(!k) return;
+  const site=view==='oversikt', t=site?hall(selHall):obj(selId); if(!t) return;
+  e.preventDefault();
+  if(!nudgeT) pushUndo(); clearTimeout(nudgeT); nudgeT=setTimeout(()=>{nudgeT=null; renderInsp();},700);
+  if(site){const st=e.shiftKey?500:100; t.ox+=k[0]*st; t.oy+=k[1]*st;} else {const st=e.shiftKey?50:10; t.x+=k[0]*st; t.y+=k[1]*st;}
+  changed(); render();
+});
+
+/* ---------- toolbar ---------- */
+document.getElementById('undo').addEventListener('click',()=>{
+  const u=undo.pop(); if(!u) return; S=JSON.parse(u);
+  if(selId&&!obj(selId)) selId=null; if(selHall&&!hall(selHall)) selHall=null; document.getElementById('undo').disabled=!undo.length; changed(); render(); renderInsp();
+});
+document.getElementById('zoomin').addEventListener('click',()=>{zoom=Math.min(4,zoom+0.5); render();});
+document.getElementById('zoomout').addEventListener('click',()=>{zoom=Math.max(1,zoom-0.5); render();});
+document.getElementById('b-export').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=((S.bedrift||'plan').replace(/[^\wæøåÆØÅ-]+/g,'_'))+'_plan_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  statusEl.textContent='Eksportert';
+});
+const fileIn=document.getElementById('importfile');
+document.getElementById('b-import').addEventListener('click',()=>fileIn.click());
+fileIn.addEventListener('change',()=>{
+  const f=fileIn.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{const d=JSON.parse(r.result); if(!valid(d)) throw 0; pushUndo(); S=clean(d); view='oversikt'; selId=null; selHall=null; changed(); render(); renderInsp(); statusEl.textContent='Importert «'+f.name+'»';}
+    catch(e){statusEl.classList.add('err'); statusEl.textContent='Fila er ikkje ein plan frå Planverktøy.';} fileIn.value=''; };
+  r.readAsText(f);
+});
+document.getElementById('b-print').addEventListener('click',()=>window.print());
+twoStep(document.getElementById('b-new'),'Ny tom plan',()=>{pushUndo(); S=blank(); view=S.hallar[0].id; selId=null; selHall=null; changed(); render(); renderInsp();});
+document.getElementById('b-demo').addEventListener('click',()=>{pushUndo(); S=demo(); view='oversikt'; selId=null; selHall=null; changed(); render(); renderInsp();});
+
+/* ---------- search ---------- */
+const qEl=document.getElementById('q');
+function curQuery(){return qEl.value.trim().toLowerCase();}
+function matches(o,q){return [o.namn,o.kode,o.sideA,o.sideB,o.merknad].join('\n').toLowerCase().includes(q);}
+qEl.addEventListener('input',render);
+function renderResults(){
+  const q=curQuery(), ul=document.getElementById('results'), hint=document.getElementById('qhint');
+  if(!q){ul.innerHTML=''; hint.textContent='Søket leitar i alle hallar: namn, lokasjonskode, innhald og merknader.'; return;}
+  const r=S.objekt.filter(o=>matches(o,q));
+  hint.textContent=r.length?r.length+' treff':'Ingen treff for «'+qEl.value.trim()+'».';
+  ul.innerHTML=r.map(o=>{const h=hall(o.hall); const line=[o.sideA,o.sideB,o.merknad].join('\n').split('\n').find(l=>l.toLowerCase().includes(q))||'';
+    return '<li><button data-id="'+esc(o.id)+'">'+esc(pre(o,o.namn||TYPES[o.type].n))+'<small>'+esc((h?h.namn:'')+(line?' · '+line:''))+'</small></button></li>';}).join('');
+}
+document.getElementById('results').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; const o=obj(b.dataset.id); if(!o) return; view=o.hall; selId=o.id; selHall=null; render(); renderInsp();});
+
+/* ---------- start ---------- */
+S=load(); view='oversikt';
+/* Opna frå varetellinga: ta imot planen derifrå */
+(function(){
+  const fra=/[?&]fra=varetelling/.test(location.search);
+  try{
+    if(fra){ const raw=localStorage.getItem(INN); if(raw){ const d=JSON.parse(raw); if(valid(d)){ S=clean(d); delete S.demo; localStorage.setItem(KEY,JSON.stringify(S)); } localStorage.removeItem(INN); } sessionStorage.setItem(VTM,'1'); }
+  }catch(e){}
+  const vt=fra||(()=>{try{return sessionStorage.getItem(VTM)==='1';}catch(e){return false;}})();
+  document.getElementById('vtbar').hidden=!vt;
+  document.getElementById('b-tilvt').hidden=vt;
+  if(vt&&S.hallar.length===1) view=S.hallar[0].id;
+})();
+function tilVaretelling(sporje){
+  if(sporje&&!confirm('Dette tek planen i bruk i varetellinga på denne eininga og erstattar planen som er der no. Halde fram?')) return;
+  try{ localStorage.setItem(KEY,JSON.stringify(S)); localStorage.setItem(UT,JSON.stringify(S)); sessionStorage.removeItem(VTM); }catch(e){ statusEl.classList.add('err'); statusEl.textContent='Nettlesaren lagrar ikkje.'; return; }
+  location.href='../#kart';
+}
+document.getElementById('vt-bruk').addEventListener('click',()=>tilVaretelling(false));
+document.getElementById('b-tilvt').addEventListener('click',()=>tilVaretelling(true));
+document.getElementById('vt-avbryt').addEventListener('click',()=>{ try{sessionStorage.removeItem(VTM);}catch(e){} location.href='../#oppsett'; });
+const spSel=document.getElementById('b-sprak'); spSel.value=SPRAK; spSel.addEventListener('change',()=>setSprak(spSel.value));
+render(); renderInsp();
+try{statusEl.textContent=localStorage.getItem(KEY)?'Planen er lasta frå denne maskina':'';}catch(e){}
+})();
+</script>
+</body>
+</html>
