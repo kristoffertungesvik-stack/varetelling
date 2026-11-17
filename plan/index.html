@@ -210,7 +210,7 @@ teljeliste=telleliste; vara=varen; varelista=varelisten; lista=listen; linja=lin
 handskannar=håndskanner; skannar=skanner; skannaren=skanneren; kameraet=kameraet; vidvinkelkameraet=vidvinkelkameraet
 pengar=penger; hovudgruppe=hovedgruppe; tregast=tregest; rekkjer=rekker; rekkje=rekke; bilete=bilde; biletet=bildet; frigjere=frigjøre; kvardagen=hverdagen
 dømeplan=eksempelplan; døme=eksempel; dømebedrift=eksempelbedrift
-måndag=mandag; tysdag=tirsdag; laurdag=lørdag; sundag=søndag; starta=startet; avslutta=avsluttet; tald=talt; telt=telt; byrja=begynt; byrjar=begynner; byrje=begynne; bedrifta=bedriften; bedrifter=bedrifter; innan=innen; beheld=beholder; merkt=merket; føreslå=foreslå; lesar=leser; fjerna=fjernet; fjerne=fjerne; lagde=lagt; hand=hånd; skriven=skrevet; blanda=blandet; velkomen=velkommen; nnivå=nivå; nivå=nivå; nedst=nederst; øvst=øverst; nedste=nederste; øvste=øverste
+måndag=mandag; tysdag=tirsdag; laurdag=lørdag; sundag=søndag; starta=startet; avslutta=avsluttet; tald=talt; telt=telt; byrja=begynt; byrjar=begynner; byrje=begynne; bedrifta=bedriften; bedrifter=bedrifter; innan=innen; beheld=beholder; merkt=merket; føreslå=foreslå; lesar=leser; fjerna=fjernet; fjerne=fjerne; lagde=lagt; hand=hånd; skriven=skrevet; blanda=blandet; velkomen=velkommen; valet=valget; ei=en; lita=liten; gjeld=gjelder; hurtigteljing=hurtigtelling; hurtigteljinga=hurtigtellingen; talknappane=tallknappene; talknappar=tallknapper; skanningane=skanningene; skanningar=skanninger; lesen=lest; same=samme; ukjend=ukjent; ukjende=ukjente; panelet=panelet; kameravisinga=kameravisningen; nnivå=nivå; nivå=nivå; nedst=nederst; øvst=øverst; nedste=nederste; øvste=øverste
 òg=også; berre=bare; heller=heller; ingenting=ingenting; alltid=alltid
 fyrst=først; fyrste=første; andre=andre; tredje=tredje
 vekt=vekt; veg=veier; vege=veie; vegast=veies
@@ -230,7 +230,7 @@ leggast=legges; leggjast=legges; dobbelttelling=dobbelttelling
   return d;
 })();
 /* Verb der nynorsk har same form i presens og imperativ: [imperativ, presens] */
-const NB_VERB = {tel:['tell','teller'], vel:['velg','velger'], byt:['bytt','bytter'], set:['sett','setter'], sjå:['se','ser'], held:['hold','holder'], les:['les','leser'], gjer:['gjør','gjør'], tek:['ta','tar'], treng:['trenger','trenger'], gjev:['gi','gir'], ligg:['ligg','ligger'], teikn:['tegn','tegner'], hugs:['husk','husker'], veg:['vei','veier']};
+const NB_VERB = {tel:['tell','teller'], vel:['velg','velger'], byt:['bytt','bytter'], set:['sett','setter'], sjå:['se','ser'], held:['hold','holder'], les:['les','leser'], gjer:['gjør','gjør'], tek:['ta','tar'], treng:['trenger','trenger'], gjev:['gi','gir'], ligg:['ligg','ligger'], teikn:['tegn','tegner'], hugs:['husk','husker'], legg:['legg','legger'], veg:['vei','veier']};
 const NB_SUBJ = new Set(['du','de','dei','eg','me','vi','ho','han','som','appen','ein','kven','kva','kor','korleis','slik','når','der','her','den','det','dette','telefonen','eininga','lista','ikkje','alle','tilsette','ein','mobilen','du','også','òg']);
 const NB_IMP = new Set(['', '.', 'og', 'eller', 'så', 'først', 'fyrst', 'deretter', 'då', 'berre', 'no', 'så', 'gjerne', 'òg', 'elles', 'ikkje']);
 const NB_KVAR_HVOR = new Set(['er','ligg','står','finn','finst','går','skal','kjem','blir','vert','du','de','dei','eg','me','vi','ho','han','tala','appen','teljinga','lista','dei','kan','vil','må','var']);
