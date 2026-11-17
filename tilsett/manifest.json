@@ -1,0 +1,22 @@
+{
+ "name": "Varetelling – tilsette",
+ "short_name": "Telling",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#263238",
+ "theme_color": "#263238",
+ "lang": "nn",
+ "icons": [
+  {
+   "src": "../ikon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "../ikon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  }
+ ]
+}
